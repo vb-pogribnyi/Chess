@@ -1,4 +1,8 @@
 import os
+import subprocess
+
+fish = subprocess.Popen('stockfish.exe', stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+fish_out = fish.stdout.readline().decode()
 
 colors = {
     'black': '\u001b[30m',
@@ -38,6 +42,26 @@ is_castle_ks_b, is_castle_qs_b = True, True
 
 c_chess = lambda x, y: '{}{}'.format(chr(x + 96), str(y))
 c_num = lambda c: (ord(c[0]) - 96, int(c[1]))
+
+fish_mem = None
+def fish_get_move(history):
+    global fish_mem
+    if fish_mem:
+        result = fish_mem
+        fish_mem = None
+    else:
+        cmd = 'position startpos moves ' + ' '.join(history)
+        fish.stdin.write((cmd + '\n').encode())
+        fish.stdin.write('go depth 10\n'.encode())
+        fish.stdin.flush()
+        fish_out = ''
+        while not 'bestmove' in fish_out:
+            fish_out = fish.stdout.readline().decode()
+            # print(fish_out)
+        fish_out = fish_out.split(' ')[1]
+        result = fish_out[:2]
+        fish_mem = fish_out[2:]
+    return result
 
 def is_enemy(p1, p2):
     return (p1.lower() == p1) != (p2.lower() == p2)
@@ -182,7 +206,7 @@ def draw():
 history = []
 while True:
     print(is_white_move)
-    print(is_castle_ks_w, is_castle_qs_w, is_castle_ks_b, is_castle_qs_b)
+    # print(is_castle_ks_w, is_castle_qs_w, is_castle_ks_b, is_castle_qs_b)
     if selection is not None:
         moves = get_moves(state[selection], selection)
     else:
@@ -190,7 +214,12 @@ while True:
     # os.system('cls')
     draw()
     print(' '.join(history))
-    cmd = input()
+
+    if not is_white_move:
+        cmd = fish_get_move(history)
+    else:
+        cmd = input()
+    print(cmd)
     if len(cmd) > 2 or len(cmd) < 1:
         continue
     if selection is None and cmd in state and (state[cmd].upper() == state[cmd]) == is_white_move:
