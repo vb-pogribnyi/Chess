@@ -141,7 +141,6 @@ while True:
         possible_moves = guard_fish.get_possible_moves()
     if selection and not moves:
         moves = possible_moves[selection]
-    # print(is_white_move)
 
     os.system('cls')
     draw()
@@ -157,14 +156,6 @@ while True:
         cmd = player_w.get_move()
         if len(possible_moves) == 0:
             exit('White lose')
-    # print(cmd)
-
-    # for s in state:
-    #     y = c_num(s)[1]
-    #     if y == 2 and state[s] == 'p':
-    #         d = 3
-    #     if y == 7 and state[s] == 'P':
-    #         d = 66
 
 
     if selection is None and cmd in possible_moves:
@@ -188,7 +179,7 @@ while True:
             state.pop('a8')
 
         if len(cmd) == 3:
-            state[cmd[:2]] = cmd[2]
+            state[cmd[:2]] = cmd[2].upper() if is_white_move else cmd[2].lower()
         else:
             state[cmd] = state[selection]
         state.pop(selection)
