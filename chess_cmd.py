@@ -1,11 +1,19 @@
 import os
+import re
 import subprocess
 
 class Fish:
-    def __init__(self, depth=10):
+    def __init__(self, depth=10, nnue=True):
         self.fish_mem = None
         self.depth = depth
         self.fish = subprocess.Popen('stockfish.exe', stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        self.scores = []
+        self.score_type = ''
+
+        cmd = 'setoption name Use NNUE value {}'.format('true' if nnue else 'false')
+        self.fish.stdin.write((cmd + '\n').encode())
+        self.fish.stdin.flush()
+
         greeting = self.fish.stdout.readline().decode()
         print(greeting)
 
@@ -19,11 +27,17 @@ class Fish:
             result = self.fish_mem
             self.fish_mem = None
         else:
+            self.scores.clear()
             self.fish.stdin.write('go depth {}\n'.format(self.depth).encode())
             self.fish.stdin.flush()
             fish_out = ''
             while not 'bestmove' in fish_out:
                 fish_out = self.fish.stdout.readline().decode()
+                score = re.search('score (cp|mate) ([-]?[0-9]+)', fish_out)
+                if score:
+                    self.score_type = score.group(1)
+                    score = int(score.group(2)) / 100
+                    self.scores.append(score)
                 # print(fish_out)
             fish_out = fish_out.split(' ')[1]
             fish_out = fish_out.rstrip()
@@ -95,7 +109,7 @@ moves = []
 selection = None
 
 c_chess = lambda x, y: '{}{}'.format(chr(x + 96), str(y))
-c_num = lambda c: (ord(c[0]) - 96, int(c[1]))
+# c_num = lambda c: (ord(c[0]) - 96, int(c[1]))
 
 
 def draw():
@@ -129,20 +143,23 @@ def draw():
 
         print(result)
 
-guard_fish = Fish()
+guard_fish = Fish(15, nnue=False)
 # player_w = Human()
-player_w = Fish(20)
+player_w = Fish(10)
 # player_b = Human()
-player_b = Fish(15)
+player_b = Fish(5)
 history = []
 while True:
     guard_fish.set_state(history)
     if not possible_moves:
         possible_moves = guard_fish.get_possible_moves()
+        guard_fish.get_move()
+        # print('Calc moves', is_white_move)
     if selection and not moves:
         moves = possible_moves[selection]
 
     os.system('cls')
+    print(guard_fish.score_type, ' '.join([str(i) for i in guard_fish.scores]))
     draw()
     print(' '.join(history))
 
@@ -150,13 +167,12 @@ while True:
         player_b.set_state(history)
         cmd = player_b.get_move()
         if len(possible_moves) == 0:
-            exit('Black lose')
+            exit('White win')
     else:
         player_w.set_state(history)
         cmd = player_w.get_move()
         if len(possible_moves) == 0:
-            exit('White lose')
-
+            exit('Black win')
 
     if selection is None and cmd in possible_moves:
         selection = cmd
@@ -164,7 +180,7 @@ while True:
         if cmd in state:
             print('Taking', state[cmd], cmd)
             state.pop(cmd)
-
+        # Castling
         if selection == 'e1' and state['e1'] == 'K' and cmd == 'g1':
             state['f1'] = state['h1']
             state.pop('h1')
