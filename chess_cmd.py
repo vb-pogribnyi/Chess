@@ -1,8 +1,64 @@
 import os
 import subprocess
 
-fish = subprocess.Popen('stockfish.exe', stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-fish_out = fish.stdout.readline().decode()
+class Fish:
+    def __init__(self, depth=10):
+        self.fish_mem = None
+        self.depth = depth
+        self.fish = subprocess.Popen('stockfish.exe', stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        greeting = self.fish.stdout.readline().decode()
+        print(greeting)
+
+    def set_state(self, history):
+        cmd = 'position startpos moves ' + ' '.join(history)
+        self.fish.stdin.write((cmd + '\n').encode())
+        self.fish.stdin.flush()
+
+    def get_move(self):
+        if self.fish_mem:
+            result = self.fish_mem
+            self.fish_mem = None
+        else:
+            self.fish.stdin.write('go depth {}\n'.format(self.depth).encode())
+            self.fish.stdin.flush()
+            fish_out = ''
+            while not 'bestmove' in fish_out:
+                fish_out = self.fish.stdout.readline().decode()
+                # print(fish_out)
+            fish_out = fish_out.split(' ')[1]
+            fish_out = fish_out.rstrip()
+            if 'none' in fish_out:
+                return None
+            result = fish_out[:2]
+            self.fish_mem = fish_out[2:]
+        return result
+
+    def get_possible_moves(self):
+        self.fish.stdin.write('go perft 1\n'.encode())
+        self.fish.stdin.flush()
+        result = {}
+        fish_result = []
+        while True:
+            fish_out = self.fish.stdout.readline().decode()
+            if 'Nodes searched' in fish_out:
+                break
+            fish_out = fish_out.split(':')
+            if len(fish_out) > 1:
+                fish_result.append(fish_out[0])
+        for v in fish_result:
+            start_square = v[:2]
+            end_square = v[2:]
+            if not start_square in result:
+                result[start_square] = []
+            result[start_square].append(end_square)
+        return result
+
+class Human:
+    def get_move(self):
+        return input()
+
+    def set_state(self, history):
+        pass
 
 colors = {
     'black': '\u001b[30m',
@@ -23,154 +79,23 @@ state = {
     'a1': 'R', 'b1': 'N', 'c1': 'B', 'd1': 'Q', 'e1': 'K', 'f1': 'B', 'g1': 'N', 'h1': 'R'
 }
 
-# state = {
-#     'a8': 'r', 'e8': 'k', 'h8': 'r',
-#     'a7': 'p', 'b7': 'p', 'c7': 'p', 'd7': 'p', 'e7': 'p', 'f7': 'p', 'g7': 'p', 'h7': 'p',
-#     'a2': 'P', 'b2': 'P', 'c2': 'P', 'd2': 'P', 'e2': 'P', 'f2': 'P', 'g2': 'P', 'h2': 'P',
-#     'a1': 'R', 'e1': 'K', 'h1': 'R'
+# pieces_codes = {
+#     'p': '\u265f', 'n': '\u265e', 'b': '\u265d', 'r': '\u265c', 'q': '\u265b', 'k': '\u265a',
+#     'P': '\u2659', 'N': '\u2658', 'B': '\u2657', 'R': '\u2656', 'Q': '\u2655', 'K': '\u2654'
 # }
+
 pieces_codes = {
-    'p': '\u265f', 'n': '\u265e', 'b': '\u265d', 'r': '\u265c', 'q': '\u265b', 'k': '\u265a',
-    'P': '\u2659', 'N': '\u2658', 'B': '\u2657', 'R': '\u2656', 'Q': '\u2655', 'K': '\u2654'
+    'p': 'p', 'n': 'n', 'b': 'b', 'r': 'r', 'q': 'q', 'k': 'k',
+    'P': 'P', 'N': 'N', 'B': 'B', 'R': 'R', 'Q': 'Q', 'K': 'K'
 }
 
 is_white_move = True
-moves = None
+possible_moves = None
+moves = []
 selection = None
-is_castle_ks_w, is_castle_qs_w = True, True
-is_castle_ks_b, is_castle_qs_b = True, True
 
 c_chess = lambda x, y: '{}{}'.format(chr(x + 96), str(y))
 c_num = lambda c: (ord(c[0]) - 96, int(c[1]))
-
-fish_mem = None
-def fish_get_move(history):
-    global fish_mem
-    if fish_mem:
-        result = fish_mem
-        fish_mem = None
-    else:
-        cmd = 'position startpos moves ' + ' '.join(history)
-        fish.stdin.write((cmd + '\n').encode())
-        fish.stdin.write('go depth 10\n'.encode())
-        fish.stdin.flush()
-        fish_out = ''
-        while not 'bestmove' in fish_out:
-            fish_out = fish.stdout.readline().decode()
-            # print(fish_out)
-        fish_out = fish_out.split(' ')[1]
-        result = fish_out[:2]
-        fish_mem = fish_out[2:]
-    return result
-
-def is_enemy(p1, p2):
-    return (p1.lower() == p1) != (p2.lower() == p2)
-
-def get_linear_moves(x, y, piece, dx, dy):
-    result = set()
-    while True:
-        x += dx
-        y += dy
-        move = (x, y)
-        coord = c_chess(x, y)
-        if not (9 > x > 0 and 9 > y > 0):
-            break
-        if coord in state:
-            if is_enemy(piece, state[coord]):
-                result.add(move)
-                break
-            else:
-                break
-        result.add(move)
-    return result
-
-def get_pua(side):
-    moves = []
-    for coord in state:
-        piece = state[coord]
-        print(piece)
-        if (piece.lower() == piece) == side:
-            continue
-        moves += get_moves(piece, coord, is_include_castling=False)
-    return moves
-
-
-def get_moves(piece, coord, is_include_castling=True):
-    moves, result = set(), set()
-    x, y = c_num(coord)
-    if piece.lower() == 'r':
-        moves = moves.union(get_linear_moves(x, y, piece, 1, 0))
-        moves = moves.union(get_linear_moves(x, y, piece, -1, 0))
-        moves = moves.union(get_linear_moves(x, y, piece, 0, 1))
-        moves = moves.union(get_linear_moves(x, y, piece, 0, -1))
-    if piece.lower() == 'n':
-        mv_options = [
-            (x + 2, y + 1), (x + 2, y - 1), (x + 1, y + 2), (x + 1, y - 2),
-            (x - 2, y + 1), (x - 2, y - 1), (x - 1, y + 2), (x - 1, y - 2)
-        ]
-        for option in mv_options:
-            coord = c_chess(option[0], option[1])
-            if coord not in state or is_enemy(piece, state[coord]):
-                moves.add(option)
-    if piece.lower() == 'k':
-        mv_options = [
-            (x + 1, y + 1), (x + 1, y), (x + 1, y - 1),
-            (x, y + 1), (x, y - 1),
-            (x - 1, y + 1), (x - 1, y), (x - 1, y - 1),
-        ]
-        if is_include_castling:
-            pua = None # positions under attack
-            if (is_castle_ks_w and piece.upper() == piece) or (is_castle_ks_b and piece.lower() == piece):
-                if c_chess(x + 1, y) not in state and c_chess(x + 2, y) not in state:
-                    pua = get_pua(piece.lower() == piece) if pua is None else pua
-                    if c_chess(x + 1, y) not in pua and c_chess(x + 2, y) not in pua:
-                        mv_options.append((x + 2, y))
-            if (is_castle_qs_w and piece.upper() == piece) or (is_castle_qs_b and piece.lower() == piece):
-                if c_chess(x - 1, y) not in state and c_chess(x - 2, y) not in state:
-                    pua = get_pua(piece.lower() == piece) if pua is None else pua
-                    if c_chess(x - 1, y) not in pua and c_chess(x - 2, y) not in pua:
-                        mv_options.append((x - 2, y))
-        for option in mv_options:
-            coord = c_chess(option[0], option[1])
-            if coord not in state or is_enemy(piece, state[coord]):
-                moves.add(option)
-    if piece.lower() == 'b':
-        moves = moves.union(get_linear_moves(x, y, piece, 1, 1))
-        moves = moves.union(get_linear_moves(x, y, piece, -1, -1))
-        moves = moves.union(get_linear_moves(x, y, piece, -1, 1))
-        moves = moves.union(get_linear_moves(x, y, piece, 1, -1))
-    if piece.lower() == 'q':
-        moves = moves.union(get_linear_moves(x, y, piece, 1, 1))
-        moves = moves.union(get_linear_moves(x, y, piece, -1, -1))
-        moves = moves.union(get_linear_moves(x, y, piece, -1, 1))
-        moves = moves.union(get_linear_moves(x, y, piece, 1, -1))
-        moves = moves.union(get_linear_moves(x, y, piece, 1, 0))
-        moves = moves.union(get_linear_moves(x, y, piece, -1, 0))
-        moves = moves.union(get_linear_moves(x, y, piece, 0, 1))
-        moves = moves.union(get_linear_moves(x, y, piece, 0, -1))
-    if piece == 'p':
-        if c_chess(x, y - 1) not in state:
-            moves.add((x, y-1))
-        if y == 7 and c_chess(x, y - 1) not in state and c_chess(x, y - 2) not in state:
-            moves.add((x, y-2))
-        if c_chess(x + 1, y - 1) in state and is_enemy(piece, state[c_chess(x + 1, y - 1)]):
-            moves.add((x+1, y-1))
-        if c_chess(x - 1, y - 1) in state and is_enemy(piece, state[c_chess(x - 1, y - 1)]):
-            moves.add((x-1, y-1))
-    if piece == 'P':
-        if c_chess(x, y + 1) not in state:
-            moves.add((x, y+1))
-        if y == 2 and c_chess(x, y + 1) not in state and c_chess(x, y + 2) not in state:
-            moves.add((x, y+2))
-        if c_chess(x + 1, y + 1) in state and is_enemy(piece, state[c_chess(x + 1, y + 1)]):
-            moves.add((x+1, y+1))
-        if c_chess(x - 1, y + 1) in state and is_enemy(piece, state[c_chess(x - 1, y + 1)]):
-            moves.add((x-1, y+1))
-    for m in moves:
-        if not(8 >= m[0] >= 1 and 8 >= m[1] >= 1):
-            continue
-        result.add((m[0], m[1]))
-    return result
 
 
 def draw():
@@ -186,7 +111,8 @@ def draw():
                 char = ' '
             if y == 8 and x > 0:
                 char = chr(xc + 96)
-            char = '\u2005{}\u2006'.format(char)
+            # char = '\u2005{}\u2006'.format(char)
+            char = '{}'.format(char)
 
             if x > 0 and y < 8:
                 if c_chess(xc, yc) in state:
@@ -196,76 +122,80 @@ def draw():
                         char = colors['green'] + char + colors['reset']
             if moves is not None:
                 for m in moves:
-                    if xc == m[0] and yc == m[1]:
+                    if m[:2] == c_chess(xc, yc):
                         char = colors['yellow'] + char + colors['reset']
 
             result += ' {}'.format(char)
 
         print(result)
 
+guard_fish = Fish()
+# player_w = Human()
+player_w = Fish(20)
+# player_b = Human()
+player_b = Fish(15)
 history = []
 while True:
-    print(is_white_move)
-    # print(is_castle_ks_w, is_castle_qs_w, is_castle_ks_b, is_castle_qs_b)
-    if selection is not None:
-        moves = get_moves(state[selection], selection)
-    else:
-        moves = None
-    # os.system('cls')
+    guard_fish.set_state(history)
+    if not possible_moves:
+        possible_moves = guard_fish.get_possible_moves()
+    if selection and not moves:
+        moves = possible_moves[selection]
+    # print(is_white_move)
+
+    os.system('cls')
     draw()
     print(' '.join(history))
 
     if not is_white_move:
-        cmd = fish_get_move(history)
+        player_b.set_state(history)
+        cmd = player_b.get_move()
+        if len(possible_moves) == 0:
+            exit('Black lose')
     else:
-        cmd = input()
-    print(cmd)
-    if len(cmd) > 2 or len(cmd) < 1:
-        continue
-    if selection is None and cmd in state and (state[cmd].upper() == state[cmd]) == is_white_move:
+        player_w.set_state(history)
+        cmd = player_w.get_move()
+        if len(possible_moves) == 0:
+            exit('White lose')
+    # print(cmd)
+
+    # for s in state:
+    #     y = c_num(s)[1]
+    #     if y == 2 and state[s] == 'p':
+    #         d = 3
+    #     if y == 7 and state[s] == 'P':
+    #         d = 66
+
+
+    if selection is None and cmd in possible_moves:
         selection = cmd
-    elif selection is not None and c_num(cmd) in moves:
-        if selection == 'e1' or cmd == 'e1':
-            is_castle_ks_w = False
-            is_castle_qs_w = False
-        if selection == 'h1' or cmd == 'h1':
-            is_castle_ks_w = False
-        if selection == 'a1' or cmd == 'a1':
-            is_castle_qs_w = False
-        if selection == 'e8' or cmd == 'e8':
-            is_castle_ks_b = False
-            is_castle_qs_b = False
-        if selection == 'h8' or cmd == 'h8':
-            is_castle_ks_b = False
-        if selection == 'a8' or cmd == 'a8':
-            is_castle_qs_b = False
+    elif selection is not None and cmd in possible_moves[selection]:
         if cmd in state:
             print('Taking', state[cmd], cmd)
             state.pop(cmd)
-        state[cmd] = state[selection]
-        state.pop(selection)
-        if selection == 'e1' and cmd == 'g1':
+
+        if selection == 'e1' and state['e1'] == 'K' and cmd == 'g1':
             state['f1'] = state['h1']
             state.pop('h1')
-            history.append('O-O')
-        elif selection == 'e1' and cmd == 'c1':
+        elif selection == 'e1' and state['e1'] == 'K' and cmd == 'c1':
             state['d1'] = state['a1']
             state.pop('a1')
-            history.append('O-O-O')
-        elif selection == 'e8' and cmd == 'g8':
+        elif selection == 'e8' and state['e8'] == 'k' and cmd == 'g8':
             state['f8'] = state['h8']
             state.pop('h8')
-            history.append('o-o')
-        elif selection == 'e8' and cmd == 'c8':
+        elif selection == 'e8' and state['e8'] == 'k' and cmd == 'c8':
             state['d8'] = state['a8']
             state.pop('a8')
-            history.append('O-O-O')
+
+        if len(cmd) == 3:
+            state[cmd[:2]] = cmd[2]
         else:
-            history.append(selection + cmd)
+            state[cmd] = state[selection]
+        state.pop(selection)
+        history.append(selection + cmd)
         selection = None
         is_white_move = not is_white_move
-    elif cmd in state and (state[cmd].upper() == state[cmd]) == is_white_move:
-        selection = cmd
+        possible_moves = None
+        moves = None
     else:
         selection = None
-
