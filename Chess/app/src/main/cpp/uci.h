@@ -78,6 +78,7 @@ std::string wdl(Value v, int ply);
 Move to_move(const Position& pos, std::string& str);
 std::string go(Position& pos, std::istringstream& is, StateListPtr& states);
 
+std::string setpos(Position &pos, std::istringstream &is, StateListPtr &states);
 } // namespace UCI
 
 extern UCI::OptionsMap Options;

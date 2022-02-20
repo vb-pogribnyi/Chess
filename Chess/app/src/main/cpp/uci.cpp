@@ -383,4 +383,9 @@ std::string UCI::go(Position& pos, std::istringstream& is, StateListPtr& states)
     return "started";
 }
 
+std::string UCI::setpos(Position& pos, std::istringstream& is, StateListPtr& states) {
+    ::Stockfish::position(pos, is, states);
+    return "started";
+}
+
 } // namespace Stockfish
