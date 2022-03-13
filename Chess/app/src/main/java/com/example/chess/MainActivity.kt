@@ -25,10 +25,13 @@ class MainActivity : AppCompatActivity() {
         game.move()
         game.select("a7")
         game.select("a6")
-        binding.sampleText.text = game.history()
         binding.board.setOnTouchListener { view, motionEvent ->
             if (motionEvent != null) {
-                binding.board.setSelection(motionEvent.getX(), motionEvent.getY())
+                val pos = binding.board.setSelection(motionEvent.getX(), motionEvent.getY())
+                val moves = game.select(pos)
+                binding.board.setCandidates(moves)
+
+                binding.sampleText.text = game.history()
             }
             true
         }
