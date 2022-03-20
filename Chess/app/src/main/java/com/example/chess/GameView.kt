@@ -17,6 +17,7 @@ class GameView : View {
     constructor(context: Context, attrs: AttributeSet): super(context, attrs)
 
     var selection = Pair(-1, -1)
+    var side = 0
     val candidates = ArrayList<Pair<Int, Int>>()
     private val colorWhite = Color.rgb(255, 188, 0)
     private val colorBlack = Color.rgb(173, 129, 3)
@@ -85,6 +86,12 @@ class GameView : View {
 
     }
 
+    fun updSide(side: Int) {
+        if (side == 0 || side == 1) {
+            this.side = side
+        }
+        invalidate()
+    }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         var size = min(
@@ -196,6 +203,12 @@ class GameView : View {
             }
         }
         invalidate()
+
+        // Check for castling
+        if (move == "e8g8") movePiece("h8f8")
+        if (move == "e8c8") movePiece("a8d8")
+        if (move == "e1g1") movePiece("h1f1")
+        if (move == "e1c1") movePiece("a1d1")
 
         return result
     }

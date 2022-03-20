@@ -10,8 +10,20 @@ class Game {
     private var endMoves = ArrayList<String>()
     private var selection = ""
 
+    init {
+        loadMoves()
+    }
+
     fun getMoves(): ArrayList<String> {
         return endMoves
+    }
+
+    fun getStartMoves(): ArrayList<String> {
+        val result: ArrayList<String> = ArrayList()
+        for (m in moves) {
+            result.add(m.substring(0, 2))
+        }
+        return result
     }
 
     fun history(): String {
@@ -55,16 +67,20 @@ class Game {
         return null
     }
 
-    fun move(): String {
-        val bestmove = fish.fishGo(history)
-
-        move(bestmove)
+    private fun loadMoves() {
         moves.clear()
         for (m in fish.perft(history).split(' ')) {
             if (m.length > 0) {
                 moves.add(m)
             }
         }
+    }
+
+    fun move(): String {
+        val bestmove = fish.fishGo(history)
+
+        move(bestmove)
+        loadMoves()
 
         return bestmove
     }
