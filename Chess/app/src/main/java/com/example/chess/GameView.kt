@@ -7,6 +7,11 @@ import android.view.MotionEvent
 import android.view.View
 import kotlin.math.min
 
+public data class MuPair<A, B>(
+    public var first: A,
+    public var second: B
+)
+
 class GameView : View {
     constructor(context: Context): super(context)
     constructor(context: Context, attrs: AttributeSet): super(context, attrs)
@@ -39,40 +44,40 @@ class GameView : View {
         'N' to Rect(lmarg + 4 * vstep, tmarg + hstep, lmarg + 5 * vstep, tmarg + 2 * hstep),
         'P' to Rect(lmarg + 5 * vstep, tmarg + hstep, lmarg + 6 * vstep, tmarg + 2 * hstep)
     )
-    var gameState = listOf(
-        Pair('r', Pair(0, 0)),
-        Pair('n', Pair(0, 1)),
-        Pair('b', Pair(0, 2)),
-        Pair('q', Pair(0, 3)),
-        Pair('k', Pair(0, 4)),
-        Pair('b', Pair(0, 5)),
-        Pair('n', Pair(0, 6)),
-        Pair('r', Pair(0, 7)),
-        Pair('p', Pair(1, 0)),
-        Pair('p', Pair(1, 1)),
-        Pair('p', Pair(1, 2)),
-        Pair('p', Pair(1, 3)),
-        Pair('p', Pair(1, 4)),
-        Pair('p', Pair(1, 5)),
-        Pair('p', Pair(1, 6)),
-        Pair('p', Pair(1, 7)),
+    var gameState = mutableListOf(
+        Pair('R', MuPair(0, 0)),
+        Pair('N', MuPair(0, 1)),
+        Pair('B', MuPair(0, 2)),
+        Pair('Q', MuPair(0, 3)),
+        Pair('K', MuPair(0, 4)),
+        Pair('B', MuPair(0, 5)),
+        Pair('N', MuPair(0, 6)),
+        Pair('R', MuPair(0, 7)),
+        Pair('P', MuPair(1, 0)),
+        Pair('P', MuPair(1, 1)),
+        Pair('P', MuPair(1, 2)),
+        Pair('P', MuPair(1, 3)),
+        Pair('P', MuPair(1, 4)),
+        Pair('P', MuPair(1, 5)),
+        Pair('P', MuPair(1, 6)),
+        Pair('P', MuPair(1, 7)),
 
-        Pair('R', Pair(7, 0)),
-        Pair('N', Pair(7, 1)),
-        Pair('B', Pair(7, 2)),
-        Pair('Q', Pair(7, 3)),
-        Pair('K', Pair(7, 4)),
-        Pair('B', Pair(7, 5)),
-        Pair('N', Pair(7, 6)),
-        Pair('R', Pair(7, 7)),
-        Pair('P', Pair(6, 0)),
-        Pair('P', Pair(6, 1)),
-        Pair('P', Pair(6, 2)),
-        Pair('P', Pair(6, 3)),
-        Pair('P', Pair(6, 4)),
-        Pair('P', Pair(6, 5)),
-        Pair('P', Pair(6, 6)),
-        Pair('P', Pair(6, 7))
+        Pair('r', MuPair(7, 0)),
+        Pair('n', MuPair(7, 1)),
+        Pair('b', MuPair(7, 2)),
+        Pair('q', MuPair(7, 3)),
+        Pair('k', MuPair(7, 4)),
+        Pair('b', MuPair(7, 5)),
+        Pair('n', MuPair(7, 6)),
+        Pair('r', MuPair(7, 7)),
+        Pair('p', MuPair(6, 0)),
+        Pair('p', MuPair(6, 1)),
+        Pair('p', MuPair(6, 2)),
+        Pair('p', MuPair(6, 3)),
+        Pair('p', MuPair(6, 4)),
+        Pair('p', MuPair(6, 5)),
+        Pair('p', MuPair(6, 6)),
+        Pair('p', MuPair(6, 7))
     )
     var pieces: Bitmap
     init {
@@ -139,7 +144,7 @@ class GameView : View {
 
     }
 
-    fun drawPiece(piece: Char, row: Int, col: Int, canvas: Canvas?, paint: Paint) {
+    private fun drawPiece(piece: Char, row: Int, col: Int, canvas: Canvas?, paint: Paint) {
         val factor = 5
         val dstRect = Rect(
             (col * squareWidth + squareWidth / factor).toInt(),
@@ -151,7 +156,10 @@ class GameView : View {
     }
 
     fun setSelection(x: Float, y: Float): String {
-        val pos = Pair((x / squareWidth).toInt(), (y / squareHeight).toInt())
+        var pos = Pair(-1, -1)
+        if (x > 0 && y > 0) {
+            pos = Pair((x / squareWidth).toInt(), (y / squareHeight).toInt())
+        }
         selection = Pair(
             pos.first,
             pos.second
@@ -159,6 +167,37 @@ class GameView : View {
         invalidate()
 
         return (pos.first + 97).toChar() + (pos.second + 1).toString()
+    }
+
+    fun movePiece(move: String): Boolean {
+        if (move.length != 4) {
+            return false
+        }
+        val moveStart = Pair(move[1].digitToInt() - 1, move[0].toInt() - 97)
+        val moveEnd = Pair(move[3].digitToInt() - 1, move[2].toInt() - 97)
+        var result = false
+        var pieceRm: Pair<Char, MuPair<Int, Int>>? = null
+
+        for (piece in gameState) {
+            if (piece.second.first == moveEnd.first && piece.second.second == moveEnd.second) {
+                pieceRm = piece
+                break
+            }
+        }
+        for (piece in gameState) {
+            if (piece.second.first == moveStart.first && piece.second.second == moveStart.second) {
+                piece.second.first = moveEnd.first
+                piece.second.second = moveEnd.second
+                result = true
+                if (pieceRm != null) {
+                    gameState.remove(pieceRm)
+                }
+                break
+            }
+        }
+        invalidate()
+
+        return result
     }
 
     fun setCandidates(newCandidates: ArrayList<String>) {

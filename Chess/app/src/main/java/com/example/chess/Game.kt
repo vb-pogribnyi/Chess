@@ -10,9 +10,8 @@ class Game {
     private var endMoves = ArrayList<String>()
     private var selection = ""
 
-    private fun getMoves(): String {
-        val resultStr = fish.perft(history)
-        return resultStr
+    fun getMoves(): ArrayList<String> {
+        return endMoves
     }
 
     fun history(): String {
@@ -21,14 +20,18 @@ class Game {
 
     fun move(dst: String) {
         Log.d("MOVE", dst)
+        if (history.length > 0) {
+            history += ' '
+        }
+        history += dst
     }
 
-    fun select(pos: String): ArrayList<String> {
+    fun select(pos: String): String? {
         if (endMoves.size > 0) {
             for (m in moves) {
                 if (m.substring(2) == pos) {
-                    move(selection + pos)
-                    return ArrayList<String>()
+//                    move(selection + pos)
+                    return selection + pos
                 }
             }
             endMoves.clear()
@@ -37,7 +40,7 @@ class Game {
         selection = ""
         if (endMoves.size == 0) {
             if (pos.length != 2) {
-                return result
+                return null
             }
             for (m in moves) {
                 if (m.substring(0, 2) == pos) {
@@ -49,16 +52,13 @@ class Game {
             }
             endMoves = result
         }
-        return result
+        return null
     }
 
-    fun move() {
+    fun move(): String {
         val bestmove = fish.fishGo(history)
-        if (history.length > 0) {
-            history += ' '
-        }
-        history += bestmove
 
+        move(bestmove)
         moves.clear()
         for (m in fish.perft(history).split(' ')) {
             if (m.length > 0) {
@@ -66,6 +66,6 @@ class Game {
             }
         }
 
-        move(bestmove)
+        return bestmove
     }
 }
