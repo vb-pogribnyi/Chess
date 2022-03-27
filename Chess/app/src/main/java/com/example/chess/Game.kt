@@ -1,17 +1,28 @@
 package com.example.chess
 
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+//import java.util.concurrent.Executor
 
-class Game {
+class Game(gameView: GameView) {
     var fish = Fish()
 
     private var history = ""
     private var moves = ArrayList<String>()
     private var endMoves = ArrayList<String>()
     private var selection = ""
+    private val mainLooper = Looper.getMainLooper()
+    private val view: GameView;
 
     init {
+        this.view = gameView
         loadMoves()
+    }
+
+    fun stop() {
+        Log.d("CHESSGAME", "Stopping game")
+        fish.stop()
     }
 
     fun getMoves(): ArrayList<String> {
@@ -36,18 +47,26 @@ class Game {
             history += ' '
         }
         history += dst
+        fish.setpos(history)
+        view.setFen(fish.fen())
     }
 
+    // Returns Stockfish-formatted move notation if the
+    // move is complete, of NULL otherwise.
+    // Sets the selection variable if the move is incomplete.
+    // Unsets the selection if the move is invalid
     fun select(pos: String): String? {
         if (endMoves.size > 0) {
             for (m in moves) {
                 if (m.substring(2) == pos) {
-//                    move(selection + pos)
+                    // The move is valid and complete
                     return selection + pos
                 }
             }
+            // The move was invalid
             endMoves.clear()
         }
+        // Calculate new set of end points given selection as the starting point
         var result = ArrayList<String>()
         selection = ""
         if (endMoves.size == 0) {
@@ -77,11 +96,15 @@ class Game {
     }
 
     fun move(): String {
-        val bestmove = fish.fishGo(history)
+        Thread({
 
-        move(bestmove)
-        loadMoves()
-
-        return bestmove
+            val bestmove = fish.go(10)
+//            val bestmove = "e2e4"
+            Handler(mainLooper).post {
+                move(bestmove)
+                loadMoves()
+            }
+        }).start()
+        return "bestmove"
     }
 }

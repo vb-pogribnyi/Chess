@@ -2,8 +2,11 @@ package com.example.chess
 
 class Fish {
     external fun fishInit(): String
-    external fun fishGo(history: String): String
+    external fun go(depth: Int): String
+    external fun setpos(history: String)
     external fun perft(history: String): String
+    external fun stop()
+    external fun fen(): String
 
     var version: String = ""
 

@@ -86,6 +86,26 @@ class GameView : View {
 
     }
 
+    fun setFen(fen: String) {
+        val pos = fen.split(' ')[0]
+        gameState.clear()
+        var row = 7
+        var col = 0
+        for (char in pos) {
+            if (char == '/') {
+                row--
+                col = 0
+            }
+            else if (char.isDigit()) {
+                col += char.digitToInt()
+            }
+            else {
+                gameState.add(Pair(char, MuPair(row, col++)))
+            }
+        }
+        invalidate()
+    }
+
     fun updSide(side: Int) {
         if (side == 0 || side == 1) {
             this.side = side

@@ -50,10 +50,7 @@ Java_com_example_chess_Fish_fishInit(JNIEnv *env, jobject thiz) {
 
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_com_example_chess_Fish_fishGo(JNIEnv *env, jobject thiz, jstring jhistory) {
-    std::string history = std::string(env->GetStringUTFChars(jhistory, 0));
-    std::istringstream ispos(std::string("startpos moves " + history));
-    UCI::setpos(pos, ispos, states);
+Java_com_example_chess_Fish_go(JNIEnv *env, jobject thiz, jint jdepth) {
     std::istringstream is(std::string("depth 10"));
     UCI::go(pos, is, states);
     Threads.main()->wait_for_search_finished();
@@ -75,4 +72,25 @@ Java_com_example_chess_Fish_perft(JNIEnv *env, jobject thiz, jstring jhistory) {
         result += UCI::move(m, pos.is_chess960()) + ' ';
     }
     return env->NewStringUTF(result.c_str());
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_chess_Fish_stop(JNIEnv *env, jobject thiz) {
+    Threads.stop = true;
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_example_chess_Fish_fen(JNIEnv *env, jobject thiz) {
+    return env->NewStringUTF(pos.fen().c_str());
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_chess_Fish_setpos(JNIEnv *env, jobject thiz, jstring jhistory) {
+    std::string history = std::string(env->GetStringUTFChars(jhistory, 0));
+//    std::string history = "e2e4";
+    std::istringstream ispos(std::string("startpos moves " + history));
+    UCI::setpos(pos, ispos, states);
 }

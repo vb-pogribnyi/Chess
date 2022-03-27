@@ -13,7 +13,7 @@ import com.example.chess.databinding.ActivityMainBinding
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private var game = Game()
+    private lateinit var game: Game
 
     private fun endgame(msg: String) {
         val builder = AlertDialog.Builder(this)
@@ -47,11 +47,17 @@ class MainActivity : AppCompatActivity() {
         builder.show()
     }
 
+    override fun onDestroy() {
+        game.stop()
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        game = Game(binding.board)
 
         startgame()
 
